@@ -262,31 +262,22 @@ export const sendMessage = async (
 
 /**
  * Get all conversations for a user from the 'chats' collection
- * Fetches conversations where user is either limboref or limboref2
+ * Fetches conversations where user is in the users array
  */
 export const getUserConversations = async (userId: string): Promise<Conversation[]> => {
   try {
     const userRef = doc(db, "LimboUserMode", userId);
 
-    // Query for conversations where user is limboref
-    const q1 = query(
+    // Query for conversations where user is in the users array
+    const q = query(
       collection(db, "chats"),
-      where("limboref", "==", userRef)
+      where("users", "array-contains", userRef)
     );
 
-    // Query for conversations where user is limboref2
-    const q2 = query(
-      collection(db, "chats"),
-      where("limboref2", "==", userRef)
-    );
+    // Execute query
+    const snapshot = await getDocs(q);
 
-    // Execute both queries
-    const [snapshot1, snapshot2] = await Promise.all([
-      getDocs(q1),
-      getDocs(q2)
-    ]);
-
-    // Combine results
+    // Collect results
     const conversations: Conversation[] = [];
 
     // Helper to fetch limboref and student_ref data if present
@@ -308,8 +299,8 @@ export const getUserConversations = async (userId: string): Promise<Conversation
       return { limborefData, studentRefData };
     };
 
-    // Process conversations where user is limboref
-    for (const docSnap of snapshot1.docs) {
+    // Process all conversations
+    for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
 
       // Skip conversations that have no messages in chat_messages subcollection
@@ -324,55 +315,18 @@ export const getUserConversations = async (userId: string): Promise<Conversation
         console.warn("Could not check messages for conversation", docSnap.id, e);
       }
       
-      // Get the other user's details (limboref2)
-      const otherUserRef = data.limboref2;
-      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
-      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
-
-      const isOtherUserTeacher = otherUserData.isTeacher || false;
-      const isOtherUserStudent = otherUserData.isStudent || false;
-
-      const { limborefData, studentRefData } = await fetchRefsData(data);
-
-      conversations.push({
-        id: docSnap.id,
-        ...data,
-        otherParticipant: {
-          uid: otherUserRef?.id || "",
-          display_name: otherUserData.display_name || "User",
-          photo_url: otherUserData.photo_url || "",
-          isTeacher: isOtherUserTeacher,
-          isStudent: isOtherUserStudent,
-          isOnline: isOtherUserTeacher 
-            ? (data.is_expert_online || false) 
-            : (data.is_student_online || false),
-        },
-        type: data.chat_paid_for ? "paid" : "free",
-        is_expert_online: data.is_expert_online || false,
-        is_student_online: data.is_student_online || false,
-        limborefData,
-        studentRefData,
-      });
-    }
-
-    // Process conversations where user is limboref2
-    for (const docSnap of snapshot2.docs) {
-      const data = docSnap.data();
-
-      // Skip conversations that have no messages in chat_messages subcollection
-      try {
-        const messagesSnap = await getDocs(query(collection(db, "chats", docSnap.id, "chat_messages"), limit(1)));
-        if (messagesSnap.empty) {
-          continue;
-        }
-      } catch (e) {
-        console.warn("Could not check messages for conversation", docSnap.id, e);
-      }
+      // Find the other user from the users array
+      const usersArray = data.users || [];
+      const otherUserRef = usersArray.find((ref: DocumentReference) => ref.id !== userId);
       
-      // Get the other user's details (limboref)
-      const otherUserRef = data.limboref;
-      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
-      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
+      if (!otherUserRef) {
+        console.warn("Could not find other user in conversation", docSnap.id);
+        continue;
+      }
+
+      // Get the other user's details
+      const otherUserDoc = await getDoc(otherUserRef);
+      const otherUserData = otherUserDoc.exists() ? otherUserDoc.data() : {};
 
       const isOtherUserTeacher = otherUserData.isTeacher || false;
       const isOtherUserStudent = otherUserData.isStudent || false;
@@ -383,7 +337,7 @@ export const getUserConversations = async (userId: string): Promise<Conversation
         id: docSnap.id,
         ...data,
         otherParticipant: {
-          uid: otherUserRef?.id || "",
+          uid: otherUserRef.id || "",
           display_name: otherUserData.display_name || "User",
           photo_url: otherUserData.photo_url || "",
           isTeacher: isOtherUserTeacher,
@@ -392,7 +346,7 @@ export const getUserConversations = async (userId: string): Promise<Conversation
             ? (data.is_expert_online || false) 
             : (data.is_student_online || false),
         },
-        type: data.chat_paid_for ? "paid" : "free",
+        type: data.paid_chat ? "paid" : "free",
         is_expert_online: data.is_expert_online || false,
         is_student_online: data.is_student_online || false,
         limborefData,

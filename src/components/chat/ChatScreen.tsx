@@ -1,11 +1,11 @@
-
- 
 // @ts-nocheck
 "use client";
 import React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { 
   getUserConversations, 
+  getUserPaidConversations,
+  getUserFreeConversations,
   sendMessage,
   subscribeToMessages
 } from "@/src/lib/api/chat";
@@ -154,6 +154,7 @@ const ChatScreen = () => {
   const [calls, setCalls] = React.useState<CallRecord[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(true);
+  const [tabLoading, setTabLoading] = React.useState(false);
   const [sendingMessage, setSendingMessage] = React.useState(false);
   const [messageDialogOpen, setMessageDialogOpen] = React.useState(false);
   const [dialogPayload, setDialogPayload] = React.useState<any>(null);
@@ -275,19 +276,34 @@ const ChatScreen = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load conversations based on activeTab (free/paid)
   React.useEffect(() => {
     const loadConversations = async () => {
       if (!currentUserId) {
         setLoading(false);
         return;
       }
-
       try {
-        setLoading(true);
-        const userConversations = await getUserConversations(currentUserId);
-        console.log("Fetched conversations for user:", currentUserId, userConversations);
+        // For initial page load, show full page skeleton
+        // For tab changes, show tab skeleton
+        if (loading) {
+          setLoading(true);
+        } else {
+          setTabLoading(true);
+        }
+        
+        let userConversations = [];
+        if (activeTab === "paid") {
+          userConversations = await getUserPaidConversations(currentUserId);
+          console.log("Paid conversations:", userConversations);
+        } else if (activeTab === "free") {
+          userConversations = await getUserFreeConversations(currentUserId);
+          console.log("Free conversations:", userConversations);
+        } else {
+          userConversations = await getUserConversations(currentUserId);
+          console.log("All conversations:", userConversations);
+        }
         setConversations(userConversations);
-        console.log("User conversations loaded:", userConversations);
         if (conversationIdFromUrl) {
           const foundConversation = userConversations.find(c => c.id === conversationIdFromUrl);
           if (foundConversation) {
@@ -301,11 +317,11 @@ const ChatScreen = () => {
         toast.error("Failed to load conversations");
       } finally {
         setLoading(false);
+        setTabLoading(false);
       }
     };
-
     loadConversations();
-  }, [currentUserId, conversationIdFromUrl]);
+  }, [activeTab, currentUserId, conversationIdFromUrl]);
 
   React.useEffect(() => {
     if (!selectedChat?.id) {
@@ -337,7 +353,7 @@ const ChatScreen = () => {
         const fetched = await getUserCalls(currentUserId);
         setCalls(fetched);
         // Log each call in a serializable, readable format
-        console.log("User calls loaded (raw):", fetched);
+        // console.log("User calls loaded (raw):", fetched);
         try {
           fetched.forEach((c: any, idx: number) => {
             console.log(`call[${idx}]`, serializeCallForLog(c));
@@ -472,10 +488,78 @@ const ChatScreen = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen md:h-[90vh] w-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading conversations...</p>
+      <div className="bg-gradient-to-br from-[#E8ECE4] via-white to-[#E8ECE4]/50 md:py-2 md:px-6 md:min-h-[calc(100vh-4rem)]">
+        <div className="h-full">
+          <div className="flex w-[100%] flex-col md:flex-row h-[calc(100vh-4rem)] md:h-[calc(100vh-6rem)] bg-white md:rounded-2xl md:shadow-2xl overflow-hidden md:border md:border-gray-100">
+            {/* Sidebar Skeleton */}
+            <aside className="sm:w-[40%] w-full bg-gradient-to-b from-[#22542F] to-[#1a4023] text-white flex flex-col">
+              {/* Header Skeleton */}
+              <div className="px-6 py-5 border-b border-white/10 bg-black/10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-white/20 animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-5 w-24 bg-white/20 animate-pulse rounded"></div>
+                    <div className="h-3 w-32 bg-white/20 animate-pulse rounded"></div>
+                  </div>
+                </div>
+                {/* Tab Buttons Skeleton */}
+                <div className="flex gap-2 bg-black/20 backdrop-blur-sm rounded-xl p-1.5">
+                  <div className="flex-1 h-10 bg-white/20 animate-pulse rounded-lg"></div>
+                  <div className="flex-1 h-10 bg-white/20 animate-pulse rounded-lg"></div>
+                  <div className="flex-1 h-10 bg-white/20 animate-pulse rounded-lg"></div>
+                </div>
+              </div>
+              {/* Conversations List Skeleton */}
+              <nav className="flex-1 overflow-y-auto p-4 space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex gap-3 items-center p-3">
+                    <div className="w-14 h-14 rounded-full bg-white/20 animate-pulse"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-2/3 bg-white/20 animate-pulse rounded"></div>
+                      <div className="h-3 w-1/2 bg-white/20 animate-pulse rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </nav>
+            </aside>
+
+            {/* Main Chat Section Skeleton */}
+            <section className="flex-1 w-full sm:w-[60%] flex flex-col bg-gradient-to-br from-gray-50 to-white">
+              {/* Chat Header Skeleton */}
+              <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-5 w-32 bg-gray-200 animate-pulse rounded"></div>
+                    <div className="h-3 w-20 bg-gray-200 animate-pulse rounded"></div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                  <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                </div>
+              </div>
+              {/* Messages Area Skeleton */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[70%] ${i % 2 === 0 ? 'bg-gray-200' : 'bg-primary/20'} p-4 rounded-2xl animate-pulse`}>
+                      <div className="h-4 w-48 bg-gray-300 rounded mb-2"></div>
+                      <div className="h-3 w-32 bg-gray-300 rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Input Area Skeleton */}
+              <div className="px-6 py-4 bg-white border-t border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                  <div className="flex-1 h-12 bg-gray-200 animate-pulse rounded-full"></div>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     );
@@ -557,6 +641,27 @@ const ChatScreen = () => {
             {/* Conversations List */}
             <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
               {activeTab === "calls" ? (
+                tabLoading ? (
+                  <div className="p-4 space-y-4">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-xl p-4 shadow-sm border animate-pulse">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 rounded-full bg-gray-200"></div>
+                            <div className="space-y-2 flex-1">
+                              <div className="h-4 w-2/3 bg-gray-200 rounded"></div>
+                              <div className="h-3 w-1/2 bg-gray-200 rounded"></div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                            <div className="h-3 w-12 bg-gray-200 rounded"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                 // <div className="p-4 space-y-3">
                 //     {(calls.length ? calls : mockCallLogs).map((log: any) => {
                 //     const isMock = !log.id || typeof log.id === 'number';
@@ -724,9 +829,22 @@ const ChatScreen = () => {
                       );
                     })}
                   </div>
+                )
               ) : (
                 <>
-                  {currentChats.length === 0 ? (
+                  {tabLoading ? (
+                    <div className="p-4 space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="flex gap-3 items-center p-3">
+                          <div className="w-14 h-14 rounded-full bg-white/20 animate-pulse"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-2/3 bg-white/20 animate-pulse rounded"></div>
+                            <div className="h-3 w-1/2 bg-white/20 animate-pulse rounded"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : currentChats.length === 0 ? (
                     <div className="p-8 text-center">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
                         <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -779,7 +897,7 @@ const ChatScreen = () => {
                             </span>
                             {chat.type === "paid" && (
                               <span className="text-[10px] bg-amber-400/90 text-amber-900 px-2 py-1 rounded-full flex-shrink-0 ml-2 font-bold">
-                                💎 PAID
+                               PAID
                               </span>
                             )}
                           </div>
@@ -944,7 +1062,7 @@ const ChatScreen = () => {
                       {selectedChat?.type === "paid" ? (
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-xs text-amber-600 font-semibold flex items-center gap-1">
-                            💎 Paid Consultation
+                           Paid Consultation
                           </span>
                         </div>
                       ) : selectedChat ? (

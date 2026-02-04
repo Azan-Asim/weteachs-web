@@ -474,3 +474,311 @@ export const subscribeToMessages = (
     }
   );
 };
+
+/**
+ * Get all FREE conversations for a user from the 'chats' collection
+ * Fetches conversations where paid_chat is false
+ */
+export const getUserFreeConversations = async (userId: string): Promise<Conversation[]> => {
+  try {
+    const userRef = doc(db, "LimboUserMode", userId);
+
+    // Query for conversations where user is limboref and paid_chat is false
+    const q1 = query(
+      collection(db, "chats"),
+      where("limboref", "==", userRef),
+      where("paid_chat", "==", false)
+    );
+
+    // Query for conversations where user is limboref2 and paid_chat is false
+    const q2 = query(
+      collection(db, "chats"),
+      where("limboref2", "==", userRef),
+      where("paid_chat", "==", false)
+    );
+
+    // Execute both queries
+    const [snapshot1, snapshot2] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2)
+    ]);
+
+    // Combine results
+    const conversations: Conversation[] = [];
+
+    // Helper to fetch limboref and student_ref data if present
+    const fetchRefsData = async (data: any) => {
+      let limborefData = {};
+      let studentRefData = {};
+      try {
+        if (data.limboref) {
+          const limborefDoc = await getDoc(data.limboref);
+          if (limborefDoc.exists()) limborefData = limborefDoc.data();
+        }
+        if (data.student_ref) {
+          const studentRefDoc = await getDoc(data.student_ref);
+          if (studentRefDoc.exists()) studentRefData = studentRefDoc.data();
+        }
+      } catch (e) {
+        // ignore individual ref fetch errors
+      }
+      return { limborefData, studentRefData };
+    };
+
+    // Process conversations where user is limboref
+    for (const docSnap of snapshot1.docs) {
+      const data = docSnap.data();
+
+      // Skip conversations that have no messages in chat_messages subcollection
+      try {
+        const messagesSnap = await getDocs(query(collection(db, "chats", docSnap.id, "chat_messages"), limit(1)));
+        if (messagesSnap.empty) {
+          continue;
+        }
+      } catch (e) {
+        console.warn("Could not check messages for conversation", docSnap.id, e);
+      }
+      
+      // Get the other user's details (limboref2)
+      const otherUserRef = data.limboref2;
+      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
+      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
+
+      const isOtherUserTeacher = otherUserData.isTeacher || false;
+      const isOtherUserStudent = otherUserData.isStudent || false;
+
+      const { limborefData, studentRefData } = await fetchRefsData(data);
+
+      conversations.push({
+        id: docSnap.id,
+        ...data,
+        otherParticipant: {
+          uid: otherUserRef?.id || "",
+          display_name: otherUserData.display_name || "User",
+          photo_url: otherUserData.photo_url || "",
+          isTeacher: isOtherUserTeacher,
+          isStudent: isOtherUserStudent,
+          isOnline: isOtherUserTeacher 
+            ? (data.is_expert_online || false) 
+            : (data.is_student_online || false),
+        },
+        type: data.paid_chat ? "paid" : "free",
+        is_expert_online: data.is_expert_online || false,
+        is_student_online: data.is_student_online || false,
+        limborefData,
+        studentRefData,
+      });
+    }
+
+    // Process conversations where user is limboref2
+    for (const docSnap of snapshot2.docs) {
+      const data = docSnap.data();
+
+      // Skip conversations that have no messages in chat_messages subcollection
+      try {
+        const messagesSnap = await getDocs(query(collection(db, "chats", docSnap.id, "chat_messages"), limit(1)));
+        if (messagesSnap.empty) {
+          continue;
+        }
+      } catch (e) {
+        console.warn("Could not check messages for conversation", docSnap.id, e);
+      }
+      
+      // Get the other user's details (limboref)
+      const otherUserRef = data.limboref;
+      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
+      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
+
+      const isOtherUserTeacher = otherUserData.isTeacher || false;
+      const isOtherUserStudent = otherUserData.isStudent || false;
+
+      const { limborefData, studentRefData } = await fetchRefsData(data);
+
+      conversations.push({
+        id: docSnap.id,
+        ...data,
+        otherParticipant: {
+          uid: otherUserRef?.id || "",
+          display_name: otherUserData.display_name || "User",
+          photo_url: otherUserData.photo_url || "",
+          isTeacher: isOtherUserTeacher,
+          isStudent: isOtherUserStudent,
+          isOnline: isOtherUserTeacher 
+            ? (data.is_expert_online || false) 
+            : (data.is_student_online || false),
+        },
+        type: data.paid_chat ? "paid" : "free",
+        is_expert_online: data.is_expert_online || false,
+        is_student_online: data.is_student_online || false,
+        limborefData,
+        studentRefData,
+      });
+    }
+
+    // Sort by last message time (most recent first)
+    conversations.sort((a, b) => {
+      const timeA = a.last_message_time?.seconds || 0;
+      const timeB = b.last_message_time?.seconds || 0;
+      return timeB - timeA;
+    });
+
+    return conversations;
+  } catch (error) {
+    console.error("Error getting free conversations:", error);
+    return [];
+  }
+};
+
+/**
+ * Get all PAID conversations for a user from the 'chats' collection
+ * Fetches conversations where paid_chat is true
+ */
+export const getUserPaidConversations = async (userId: string): Promise<Conversation[]> => {
+  try {
+    const userRef = doc(db, "LimboUserMode", userId);
+
+    // Query for conversations where user is limboref and paid_chat is true
+    const q1 = query(
+      collection(db, "chats"),
+      where("limboref", "==", userRef),
+      where("paid_chat", "==", true)
+    );
+
+    // Query for conversations where user is limboref2 and paid_chat is true
+    const q2 = query(
+      collection(db, "chats"),
+      where("limboref2", "==", userRef),
+      where("paid_chat", "==", true)
+    );
+
+    // Execute both queries
+    const [snapshot1, snapshot2] = await Promise.all([
+      getDocs(q1),
+      getDocs(q2)
+    ]);
+
+    // Combine results
+    const conversations: Conversation[] = [];
+
+    // Helper to fetch limboref and student_ref data if present
+    const fetchRefsData = async (data: any) => {
+      let limborefData = {};
+      let studentRefData = {};
+      try {
+        if (data.limboref) {
+          const limborefDoc = await getDoc(data.limboref);
+          if (limborefDoc.exists()) limborefData = limborefDoc.data();
+        }
+        if (data.student_ref) {
+          const studentRefDoc = await getDoc(data.student_ref);
+          if (studentRefDoc.exists()) studentRefData = studentRefDoc.data();
+        }
+      } catch (e) {
+        // ignore individual ref fetch errors
+      }
+      return { limborefData, studentRefData };
+    };
+
+    // Process conversations where user is limboref
+    for (const docSnap of snapshot1.docs) {
+      const data = docSnap.data();
+
+      // Skip conversations that have no messages in chat_messages subcollection
+      try {
+        const messagesSnap = await getDocs(query(collection(db, "chats", docSnap.id, "chat_messages"), limit(1)));
+        if (messagesSnap.empty) {
+          continue;
+        }
+      } catch (e) {
+        console.warn("Could not check messages for conversation", docSnap.id, e);
+      }
+      
+      // Get the other user's details (limboref2)
+      const otherUserRef = data.limboref2;
+      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
+      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
+
+      const isOtherUserTeacher = otherUserData.isTeacher || false;
+      const isOtherUserStudent = otherUserData.isStudent || false;
+
+      const { limborefData, studentRefData } = await fetchRefsData(data);
+
+      conversations.push({
+        id: docSnap.id,
+        ...data,
+        otherParticipant: {
+          uid: otherUserRef?.id || "",
+          display_name: otherUserData.display_name || "User",
+          photo_url: otherUserData.photo_url || "",
+          isTeacher: isOtherUserTeacher,
+          isStudent: isOtherUserStudent,
+          isOnline: isOtherUserTeacher 
+            ? (data.is_expert_online || false) 
+            : (data.is_student_online || false),
+        },
+        type: data.paid_chat ? "paid" : "free",
+        is_expert_online: data.is_expert_online || false,
+        is_student_online: data.is_student_online || false,
+        limborefData,
+        studentRefData,
+      });
+    }
+
+    // Process conversations where user is limboref2
+    for (const docSnap of snapshot2.docs) {
+      const data = docSnap.data();
+
+      // Skip conversations that have no messages in chat_messages subcollection
+      try {
+        const messagesSnap = await getDocs(query(collection(db, "chats", docSnap.id, "chat_messages"), limit(1)));
+        if (messagesSnap.empty) {
+          continue;
+        }
+      } catch (e) {
+        console.warn("Could not check messages for conversation", docSnap.id, e);
+      }
+      
+      // Get the other user's details (limboref)
+      const otherUserRef = data.limboref;
+      const otherUserDoc = otherUserRef ? await getDoc(otherUserRef) : null;
+      const otherUserData = otherUserDoc && otherUserDoc.exists() ? otherUserDoc.data() : {};
+
+      const isOtherUserTeacher = otherUserData.isTeacher || false;
+      const isOtherUserStudent = otherUserData.isStudent || false;
+
+      const { limborefData, studentRefData } = await fetchRefsData(data);
+
+      conversations.push({
+        id: docSnap.id,
+        ...data,
+        otherParticipant: {
+          uid: otherUserRef?.id || "",
+          display_name: otherUserData.display_name || "User",
+          photo_url: otherUserData.photo_url || "",
+          isTeacher: isOtherUserTeacher,
+          isStudent: isOtherUserStudent,
+          isOnline: isOtherUserTeacher 
+            ? (data.is_expert_online || false) 
+            : (data.is_student_online || false),
+        },
+        type: data.paid_chat ? "paid" : "free",
+        is_expert_online: data.is_expert_online || false,
+        is_student_online: data.is_student_online || false,
+        limborefData,
+        studentRefData,
+      });
+    }
+
+    // Sort by last message time (most recent first)
+    conversations.sort((a, b) => {
+      const timeA = a.last_message_time?.seconds || 0;
+      const timeB = b.last_message_time?.seconds || 0;
+      return timeB - timeA;
+    });
+
+    return conversations;
+  } catch (error) {
+    console.error("Error getting paid conversations:", error);
+    return [];
+  }
+};

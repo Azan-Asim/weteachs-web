@@ -155,6 +155,8 @@ const ChatScreen = () => {
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [tabLoading, setTabLoading] = React.useState(false);
+  const [callsLoading, setCallsLoading] = React.useState(false);
+  const [isInitialLoad, setIsInitialLoad] = React.useState(true);
   const [sendingMessage, setSendingMessage] = React.useState(false);
   const [messageDialogOpen, setMessageDialogOpen] = React.useState(false);
   const [dialogPayload, setDialogPayload] = React.useState<any>(null);
@@ -281,12 +283,13 @@ const ChatScreen = () => {
     const loadConversations = async () => {
       if (!currentUserId) {
         setLoading(false);
+        setIsInitialLoad(false);
         return;
       }
       try {
         // For initial page load, show full page skeleton
         // For tab changes, show tab skeleton
-        if (loading) {
+        if (isInitialLoad) {
           setLoading(true);
         } else {
           setTabLoading(true);
@@ -318,6 +321,7 @@ const ChatScreen = () => {
       } finally {
         setLoading(false);
         setTabLoading(false);
+        setIsInitialLoad(false);
       }
     };
     loadConversations();
@@ -350,6 +354,7 @@ const ChatScreen = () => {
     let unsub: (() => void) | undefined;
     const load = async () => {
       try {
+        setCallsLoading(true);
         const fetched = await getUserCalls(currentUserId);
         setCalls(fetched);
         // Log each call in a serializable, readable format
@@ -363,6 +368,8 @@ const ChatScreen = () => {
         }
       } catch (err) {
         console.error("Error loading calls:", err);
+      } finally {
+        setCallsLoading(false);
       }
       // Subscribe for realtime updates
       unsub = subscribeToUserCalls(currentUserId, (latest) => {
@@ -641,7 +648,7 @@ const ChatScreen = () => {
             {/* Conversations List */}
             <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
               {activeTab === "calls" ? (
-                tabLoading ? (
+                callsLoading ? (
                   <div className="p-4 space-y-4">
                     {[...Array(4)].map((_, i) => (
                       <div key={i} className="bg-white rounded-xl p-4 shadow-sm border animate-pulse">

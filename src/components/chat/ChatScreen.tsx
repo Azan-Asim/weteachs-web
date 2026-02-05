@@ -306,7 +306,75 @@ const ChatScreen = () => {
           userConversations = await getUserConversations(currentUserId);
           console.log("All conversations:", userConversations);
         }
-        setConversations(userConversations);
+          // Map conversations and fetch user data for DocumentReference users
+          const mapConversationsWithUserData = async () => {
+            const mapped = await Promise.all(userConversations.map(async (conv) => {
+              let type = conv.type;
+              if (!type && typeof conv.paid_chat === 'boolean') {
+                type = conv.paid_chat ? 'paid' : 'free';
+              }
+              let otherParticipant = conv.otherParticipant;
+              if (!otherParticipant && Array.isArray(conv.users)) {
+                // Exclude current user, pick the other
+                let other = conv.users.find(u => {
+                  if (typeof u === 'string') return u !== currentUserId;
+                  if (u && u.id) return u.id !== currentUserId;
+                  return true;
+                });
+                if (other && typeof other === 'object' && other.type === 'document' && other.firestore) {
+                  // It's a DocumentReference, fetch user data
+                  try {
+                    const userDoc = await getDoc(other);
+                    if (userDoc.exists()) {
+                      const userData = userDoc.data();
+                      otherParticipant = {
+                        uid: other.id,
+                        display_name: userData.display_name || userData.name || 'Unknown',
+                        photo_url: userData.photo_url || '',
+                        isTeacher: userData.isTeacher || false,
+                        isStudent: userData.isStudent || false,
+                        isOnline: userData.isOnline || false,
+                      };
+                    } else {
+                      otherParticipant = {
+                        uid: other.id,
+                        display_name: 'Unknown',
+                        photo_url: '',
+                        isTeacher: false,
+                        isStudent: false,
+                        isOnline: false,
+                      };
+                    }
+                  } catch (e) {
+                    otherParticipant = {
+                      uid: other.id,
+                      display_name: 'Unknown',
+                      photo_url: '',
+                      isTeacher: false,
+                      isStudent: false,
+                      isOnline: false,
+                    };
+                  }
+                } else if (typeof other === 'string') {
+                  otherParticipant = {
+                    uid: other,
+                    display_name: 'Unknown',
+                    photo_url: '',
+                    isTeacher: false,
+                    isStudent: false,
+                    isOnline: false,
+                  };
+                }
+              }
+              return {
+                ...conv,
+                type,
+                otherParticipant,
+              };
+            }));
+            setConversations(mapped);
+          };
+          mapConversationsWithUserData();
         if (conversationIdFromUrl) {
           const foundConversation = userConversations.find(c => c.id === conversationIdFromUrl);
           if (foundConversation) {
@@ -361,7 +429,7 @@ const ChatScreen = () => {
         // console.log("User calls loaded (raw):", fetched);
         try {
           fetched.forEach((c: any, idx: number) => {
-            console.log(`call[${idx}]`, serializeCallForLog(c));
+            // console.log(`call[${idx}]`, serializeCallForLog(c));
           });
         } catch (e) {
           console.warn('Could not serialize calls for logging', e);

@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WeTeachs Web
+
+A modern chat and learning platform built with Next.js, React, TypeScript, Tailwind CSS, and Firebase.
+
+## Requirements
+
+- **Node.js**: v22.19.0 (LTS recommended)
+- **Next.js**: 15.5.9
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository:**
+
+2. **Install dependencies:**
+
+   ```bash
+   pnpm install
+   # or
+   npm install
+   # or
+   yarn install
+   ```
+
+3. **Run the development server:**
+
+   ```bash
+   pnpm run dev
+   # or
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000) in your browser to see the app.
+
+## Build for Production
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm run build
+pnpm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Linting
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
+- Next.js 15
+- React 19
+- TypeScript
+- Tailwind CSS
+- Firebase
 
-## Learn More
+## Project Flow
 
-To learn more about Next.js, take a look at the following resources:
+1. **Landing & Home**
+   - The app starts at `/` with a landing page featuring a hero section, recent users, features, categories, and testimonials.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Authentication**
+   - Users must sign up or log in to access most features.
+   - Auth pages: `/auth/login`, `/auth/signup`, `/auth/forgot-password`, `/auth/verify-email`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Profile Creation**
+   - New users are prompted to complete their profile at `/create-profile`.
 
-## Deploy on Vercel
+4. **Dashboard & Navigation**
+   - After login, users access the dashboard and can navigate to chat, community, categories, upload, and more via the sidebar/header.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. **Chat System**
+   - Users can view and search conversations, start new chats, and send messages (text, images, videos).
+   - Chat features include: reply, edit/delete own messages, report inappropriate messages, and WhatsApp-style reply bubbles.
+   - Media sharing and message actions are handled in the chat UI.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+6. **Calls**
+   - Users can initiate and receive audio/video calls.
+   - Call logs and statuses are displayed in the chat/calls section.
+
+7. **Community & Categories**
+   - Users can browse, create, and interact with community posts and categories.
+
+8. **Other Features**
+   - Download resources, view FAQs, contact support, and manage settings.
+   - Profile and expert viewing, leaderboard, and privacy policy pages.
+
+9. **Admin/Expert Features**
+   - Special flows for teachers/experts, including profile management and category creation.
+
+10. **Tech Stack**
+    - Built with Next.js (App Router), React 19, TypeScript, Tailwind CSS, Firebase (Firestore & Storage), shadcn/ui, lucide-react, and sonner.
+
+---
+
+For more details, see the code and comments in the repository.
+
+---
